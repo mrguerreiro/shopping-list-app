@@ -1,19 +1,26 @@
-/* frontend/src/App.css */
+/* Estilos Globais e de Fundo */
 body {
-  font-family: Arial, sans-serif;
-  background-color: #f4f4f9;
+  font-family: 'Arial', sans-serif;
+  background-color: #f0f2f5;
   color: #333;
   margin: 0;
-  padding: 20px;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
 }
 
 .container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem;
+  width: 90%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: row;
+  gap: 2rem;
 }
 
 header {
@@ -21,48 +28,160 @@ header {
   margin-bottom: 2rem;
 }
 
-header h1 {
-  color: #5c67f2;
+header input {
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  width: 100%;
+  max-width: 300px;
+  font-size: 1rem;
 }
 
 main {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
   gap: 2rem;
 }
 
+/* Seções de Lista e Detalhes */
 .listas-existentes, .lista-detalhes {
-  background: #fafafa;
-  padding: 1.5rem;
-  border-radius: 6px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Estilos de Formulários */
+form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+form input {
+  flex-grow: 1;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 1rem;
+}
+
+form button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+}
+
+form button:hover {
+  background-color: #0056b3;
+}
+
+/* Estilos de Listas de Itens */
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 1rem;
   box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
 }
 
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-
-ul li {
-  padding: 10px;
-  border-bottom: 1px solid #eee;
+li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: background-color 0.3s;
+  padding: 0.75rem;
+  border-bottom: 1px solid #eee;
+  font-size: 1rem;
 }
 
-ul li:hover {
-  background-color: #f0f0f0;
+li:last-child {
+  border-bottom: none;
 }
 
-.comprado span {
+.comprado {
   text-decoration: line-through;
   color: #888;
 }
 
 .comprador-info {
-  font-size: 0.8em;
-  color: #888;
-  margin-left: 10px;
+  font-size: 0.8rem;
+  color: #555;
+  margin-left: 0.5rem;
+}
+
+/* Botões da lista de seleção e exclusão */
+.listas-existentes ul li button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: transform 0.2s;
+}
+
+.listas-existentes ul li button:first-child {
+  flex-grow: 1;
+  text-align: left;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.listas-existentes ul li button:last-child {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.listas-existentes ul li button:hover {
+  transform: scale(1.05);
+}
+
+
+/* Media Queries para responsividade */
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column; /* Pilha de seções em telas pequenas */
+    padding: 1.5rem;
+    width: 95%;
+  }
+
+  main {
+    flex-direction: column; /* Pilha de seções de lista */
+  }
+}
+
+@media (max-width: 480px) {
+  header h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+  }
+
+  form {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  form button {
+    width: 100%;
+  }
+
+  li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .comprador-info {
+    margin-left: 0;
+    margin-top: 0.25rem;
+  }
 }
