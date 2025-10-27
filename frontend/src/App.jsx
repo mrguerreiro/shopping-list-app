@@ -1,154 +1,1014 @@
-import { useState, useEffect } from 'react';
-import './App.css';
+import React, { useState, useEffect, useCallback } from "react";
 
-const API_URL = 'http://localhost:5000/api/listas'; // URL da sua API
+import axios from "axios";
 
-function App() {
-  const [listas, setListas] = useState([]);
-  const [novaListaNome, setNovaListaNome] = useState('');
-  const [novoItemNome, setNovoItemNome] = useState('');
-  const [listaSelecionada, setListaSelecionada] = useState(null);
-  const [nomeUsuario, setNomeUsuario] = useState('');
+import "./App.css";
 
-  useEffect(() => {
-  fetchListas();
-  }, []);
+// URL base da sua API (Atualize com a sua URL de hospedagem quando disponível)
 
-  const fetchListas = async () => {
-  const response = await fetch(API_URL);
-  const data = await response.json();
-  setListas(data);
+// const API_BASE_URL = 'https://sua-api-publica.com/api/listas'; // Exemplo de URL pública
+
+const API_BASE_URL = "http://localhost:5000/api/listas";
+
+// ===============================================
+
+// Componente de Menu de Relatórios
+
+// ===============================================
+
+const MenuRelatorios = ({ setView, onBack }) => (
+  <div className="lista-detalhes" style={{ textAlign: "center" }}>
+    <h2>Menu de Relatórios</h2>
+
+    <button
+      onClick={onBack}
+      style={{
+        marginBottom: "2rem",
+        backgroundColor: "#dc3545",
+        padding: "0.75rem 1.5rem",
+      }}
+    >
+      Voltar para Listas
+    </button>
+
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <button
+        onClick={() => setView("reports_data")}
+        style={{ padding: "1rem", backgroundColor: "#3949ab", color: "white" }}
+      >
+        1. Compras por Data (O que foi comprado)
+      </button>
+
+      <button
+        onClick={() => setView("reports_usuario")}
+        style={{ padding: "1rem", backgroundColor: "#3949ab", color: "white" }}
+      >
+        2. Compras/Solicitações por Usuário
+      </button>
+
+      <button
+        onClick={() => setView("reports_frequencia")}
+        style={{ padding: "1rem", backgroundColor: "#3949ab", color: "white" }}
+      >
+        3. Frequência de Compra (Item)
+      </button>
+    </div>
+  </div>
+);
+
+// ===============================================
+
+// 1. Componente para Relatório de Compras por Data
+
+// ===============================================
+
+const RelatorioComprasPorData = ({ onBack }) => {
+  const [dataInicio, setDataInicio] = useState("");
+
+  const [dataFim, setDataFim] = useState("");
+
+  const [compras, setCompras] = useState([]);
+
+  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState(null);
+
+  const formatarData = (dataString) => {
+    const data = new Date(dataString);
+
+    const dia = String(data.getDate()).padStart(2, "0");
+
+    const mes = String(data.getMonth() + 1).padStart(2, "0");
+
+    const ano = data.getFullYear();
+
+    const horas = String(data.getHours()).padStart(2, "0");
+
+    const minutos = String(data.getMinutes()).padStart(2, "0");
+
+    return `${dia}/${mes}/${ano} às ${horas}:${minutos}`;
   };
-  const handleCriarLista = async (e) => {
-  e.preventDefault();
-  if (!novaListaNome || !nomeUsuario) return;
 
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome: novaListaNome, criadoPor: nomeUsuario, itens: [] }),
-  });
+  const buscarRelatorio = useCallback(
+    async (e) => {
+      if (e) e.preventDefault();
 
-  const data = await response.json();
-  setListas([...listas, data]);
-  setNovaListaNome('');
-  };
+      if (!dataInicio || !dataFim) {
+        setError("Por favor, selecione as duas datas.");
 
-  const handleAdicionarItem = async (e) => {
-  e.preventDefault();
-  if (!novoItemNome || !listaSelecionada) return;
+        setCompras([]);
 
-  const listaAtualizada = { ...listaSelecionada };
-  listaAtualizada.itens.push({ nome: novoItemNome });
+        return;
+      }
 
-  const response = await fetch(`${API_URL}/${listaSelecionada._id}`, {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(listaAtualizada),
-});
+      setLoading(true);
 
-const data = await response.json();
-setListas(listas.map(l => (l._id === data._id ? data : l)));
-setListaSelecionada(data);
-setNovoItemNome('');
+      setError(null);
+
+      try {
+        const response = await axios.get(`${API_BASE_URL}/relatorio-compras`, {
+          params: {
+            dataInicio,
+
+            dataFim,
+          },
+        });
+
+        setCompras(response.data);
+      } catch (err) {
+        console.error("Erro ao buscar relatório:", err);
+
+        setError(
+          "Erro ao carregar o relatório. Verifique a conexão com a API."
+        );
+
+        setCompras([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dataInicio, dataFim]
+  );
+
+  return (
+    <div className="lista-detalhes">
+      <h2>1. Compras por Data</h2>
+
+      <button
+        onClick={onBack}
+        style={{ marginBottom: "1rem", backgroundColor: "#dc3545" }}
+      >
+        Voltar para o Menu de Relatórios
+      </button>
+
+      <form
+        onSubmit={buscarRelatorio}
+        style={{ flexDirection: "column", gap: "1rem" }}
+      >
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <input
+            type="date"
+            value={dataInicio}
+            onChange={(e) => setDataInicio(e.target.value)}
+            required
+            placeholder="Data de Início"
+            style={{ flex: 1, color: "#333", backgroundColor: "#f0f0f0" }}
+          />
+
+          <input
+            type="date"
+            value={dataFim}
+            onChange={(e) => setDataFim(e.target.value)}
+            required
+            placeholder="Data Final"
+            style={{ flex: 1, color: "#333", backgroundColor: "#f0f0f0" }}
+          />
+        </div>
+
+        <button type="submit" style={{ backgroundColor: "#007bff" }}>
+          Gerar Relatório
+        </button>
+      </form>
+
+      {loading && (
+        <p style={{ textAlign: "center" }}>Carregando relatório...</p>
+      )}
+
+      {error && (
+        <p style={{ color: "#ff5252", textAlign: "center" }}>{error}</p>
+      )}
+
+      {compras.length > 0 ? (
+        <ul style={{ marginTop: "1rem" }}>
+          {compras.map((item, index) => (
+            <li
+              key={index}
+              style={{
+                flexDirection: "column",
+                alignItems: "flex-start",
+                borderBottom: "1px solid #5c6bc0",
+              }}
+            >
+              <div style={{ fontWeight: "bold" }}>{item.nome}</div>
+
+              <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>
+                Comprado por: {item.comprador || "Desconhecido"}
+              </div>
+
+              <div style={{ fontSize: "0.8rem", color: "#e0e0e0" }}>
+                Lista (Solicitante Implícito): {item.nomeLista}
+              </div>
+
+              <div style={{ fontSize: "0.8rem", color: "#b0bec5" }}>
+                Data da Compra: {formatarData(item.dataCompra)}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        !loading &&
+        !error && (
+          <p style={{ textAlign: "center", marginTop: "1rem" }}>
+            Nenhum item comprado no período selecionado.
+          </p>
+        )
+      )}
+    </div>
+  );
 };
 
-  const handleMarcarComprado = async (itemIndex) => {
-  if (!listaSelecionada) return;
-  const listaAtualizada = { ...listaSelecionada };
-  const item = listaAtualizada.itens[itemIndex];
-  item.comprado = !item.comprado;
-  item.comprador = item.comprado ? nomeUsuario : null;
+// ===============================================
 
-  const response = await fetch(`${API_URL}/${listaSelecionada._id}`, {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(listaAtualizada),
-  });
+// 2. Componente para Relatório de Compras por Usuário
 
-  const data = await response.json();
-    setListas(listas.map(l => (l._id === data._id ? data : l)));
-    setListaSelecionada(data);
-    };
+// ===============================================
 
-const handleExcluirLista = async (id) => {
-  await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-  setListas(listas.filter(l => l._id !== id));
-  setListaSelecionada(null);
+const RelatorioComprasPorUsuario = ({ onBack }) => {
+  const [usuario, setUsuario] = useState("");
+
+  const [dataInicio, setDataInicio] = useState("");
+
+  const [dataFim, setDataFim] = useState("");
+
+  const [comprados, setComprados] = useState([]);
+
+  const [solicitados, setSolicitados] = useState([]);
+
+  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState(null);
+
+  const formatarData = (dataString) => {
+    const data = new Date(dataString);
+
+    return `${String(data.getDate()).padStart(2, "0")}/${String(
+      data.getMonth() + 1
+    ).padStart(2, "0")}/${data.getFullYear()}`;
   };
-  return (
-  <div className="container">
-  <header>
-  <h1 aria-label="Aplicativo de Lista de Compras Colaborativa">Lista de Compras</h1>
-  <input 
-  type="text" 
-  placeholder="Seu nome" 
-  value={nomeUsuario}
-  onChange={(e) => setNomeUsuario(e.target.value)}
-  aria-label="Digite seu nome para identificar suas ações"  
-  />
-  </header>
 
-  <main>
-  <section className="listas-existentes">
-  <h2>Listas Ativas</h2>
-  <form onSubmit={handleCriarLista}>
-  <input
-  type="text"
-  placeholder="Nome da nova lista"
-  value={novaListaNome}
-  onChange={(e) => setNovaListaNome(e.target.value)}
-  aria-label="Digite o nome da nova lista de compras"
-  />
-  <button type="submit" aria-label="Criar nova lista">Criar</button>
-  </form>
-  <ul>
-  {listas.map(lista => (
-  <li key={lista._id}>
-  <button onClick={() => setListaSelecionada(lista)}>
-      {lista.nome}
-        </button>
-          <button onClick={() => handleExcluirLista(lista._id)} aria-label={`Excluir lista ${lista.nome}`}>
-          X
-          </button>
-            </li>
-  ))}
-      </ul>
-</section>
+  const buscarRelatorio = useCallback(
+    async (e) => {
+      if (e) e.preventDefault();
 
-  {listaSelecionada && (
-  <section className="lista-detalhes">
-  <h2 aria-label={`Detalhes da lista: ${listaSelecionada.nome}`}>{listaSelecionada.nome}</h2>
-  <form onSubmit={handleAdicionarItem}>
-  <input
-    type="text"
-    placeholder="Adicionar item"
-    value={novoItemNome}
-    onChange={(e) => setNovoItemNome(e.target.value)}
-    aria-label="Digite o nome do item a ser adicionado"
-    />
-  <button type="submit">Adicionar</button>
-  </form>
+      if (!usuario || !dataInicio || !dataFim) {
+        setError("Preencha o nome do usuário e as datas.");
+        setComprados([]);
+        setSolicitados([]);
+        return;
+      }
 
-  <ul aria-label="Itens da lista de compras">
-  {listaSelecionada.itens.map((item, index) => (
-  <li key={index} className={item.comprado ? 'comprado' : ''}>
-  <span onClick={() => handleMarcarComprado(index)} role="button" aria-pressed={item.comprado}>
-  {item.nome}
-  </span>
-  {item.comprado && item.comprador && (
-    <span className="comprador-info" aria-label={`Item comprado por ${item.comprador}`}>
-        ({item.comprador})
-      </span>
-  )} 
-    </li>
-  ))}
-  </ul>
-</section>
-  )}
-</main>
-</div>
+      setLoading(true);
+      setError(null);
+
+      try {
+        console.log('Buscando relatório para usuário:', usuario);
+        console.log('Período:', dataInicio, 'até', dataFim);
+
+        // Busca em paralelo para melhor performance
+        const [responseSolicitados, responseComprados] = await Promise.all([
+          // Buscando Listas Solicitadas (Criadas)
+          axios.get(`${API_BASE_URL}/relatorio-usuario/solicitados`, {
+            params: { usuario, dataInicio, dataFim },
+          }),
+
+          // Buscando Itens Comprados
+          axios.get(`${API_BASE_URL}/relatorio-usuario/comprados`, {
+            params: { usuario, dataInicio, dataFim },
+          })
+        ]);
+
+        console.log('Dados de solicitações:', responseSolicitados.data);
+        console.log('Dados de compras:', responseComprados.data);
+
+        setSolicitados(responseSolicitados.data);
+        setComprados(responseComprados.data);
+      } catch (err) {
+        console.error("Erro ao buscar relatório por usuário:", err);
+        console.error("Detalhes do erro:", err.response?.data || err.message);
+        
+        setError(
+          "Erro ao carregar o relatório por usuário. Verifique a conexão com a API."
+        );
+        
+        setSolicitados([]);
+        setComprados([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [usuario, dataInicio, dataFim]
   );
-}
+
+  return (
+    <div className="lista-detalhes">
+      <h2>2. Compras/Solicitações por Usuário</h2>
+
+      <button
+        onClick={onBack}
+        style={{ marginBottom: "1rem", backgroundColor: "#dc3545" }}
+      >
+        Voltar para o Menu de Relatórios
+      </button>
+
+      <form
+        onSubmit={buscarRelatorio}
+        style={{ flexDirection: "column", gap: "1rem" }}
+      >
+        <input
+          type="text"
+          value={usuario}
+          onChange={(e) => setUsuario(e.target.value)}
+          placeholder="Nome do Usuário para Pesquisa"
+          required
+          style={{ color: "#333", backgroundColor: "#f0f0f0" }}
+        />
+
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <input
+            type="date"
+            value={dataInicio}
+            onChange={(e) => setDataInicio(e.target.value)}
+            required
+            placeholder="Data de Início"
+            style={{ flex: 1, color: "#333", backgroundColor: "#f0f0f0" }}
+          />
+
+          <input
+            type="date"
+            value={dataFim}
+            onChange={(e) => setDataFim(e.target.value)}
+            required
+            placeholder="Data Final"
+            style={{ flex: 1, color: "#333", backgroundColor: "#f0f0f0" }}
+          />
+        </div>
+
+        <button type="submit" style={{ backgroundColor: "#007bff" }}>
+          Gerar Relatório
+        </button>
+      </form>
+
+      {loading && (
+        <p style={{ textAlign: "center" }}>Carregando relatório...</p>
+      )}
+
+      {error && (
+        <p style={{ color: "#ff5252", textAlign: "center" }}>{error}</p>
+      )}
+
+      {(solicitados.length > 0 || comprados.length > 0) && (
+        <div
+          style={{
+            marginTop: "1rem",
+            display: "flex",
+            gap: "1rem",
+            flexDirection: window.innerWidth < 768 ? "column" : "row",
+          }}
+        >
+          {/* Coluna de Itens SOLICITADOS (Listas cujo nome coincide com o usuário) */}
+
+          <div style={{ flex: 1, minWidth: "45%" }}>
+            <h3
+              style={{
+                color: "#4CAF50",
+                borderBottom: "1px solid #4CAF50",
+                paddingBottom: "0.5rem",
+              }}
+            >
+              Listas Solicitadas (Criadas) - {solicitados.length}
+            </h3>
+
+            {solicitados.length > 0 ? (
+              <ul
+                style={{
+                  padding: "0.5rem",
+                  maxHeight: "300px",
+                  overflowY: "auto",
+                }}
+              >
+                {solicitados.map((lista, index) => (
+                  <li
+                    key={index}
+                    style={{
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div style={{ fontWeight: "bold" }}>
+                      Lista: {lista.nome}
+                    </div>
+
+                    <div style={{ fontSize: "0.8rem", color: "#b0bec5" }}>
+                      Simulação: Lista criada por nome similar.
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ fontSize: "0.9rem" }}>
+                Nenhuma lista criada por nome similar.
+              </p>
+            )}
+          </div>
+
+          {/* Coluna de Itens COMPRADOS (Itens marcados como comprados pelo usuário) */}
+
+          <div style={{ flex: 1, minWidth: "45%" }}>
+            <h3
+              style={{
+                color: "#FF9800",
+                borderBottom: "1px solid #FF9800",
+                paddingBottom: "0.5rem",
+              }}
+            >
+              Itens Comprados - {comprados.length}
+            </h3>
+
+            {comprados.length > 0 ? (
+              <ul
+                style={{
+                  padding: "0.5rem",
+                  maxHeight: "300px",
+                  overflowY: "auto",
+                }}
+              >
+                {comprados.map((item, index) => (
+                  <li
+                    key={index}
+                    style={{
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div style={{ fontWeight: "bold" }}>{item.nome}</div>
+
+                    <div style={{ fontSize: "0.8rem", color: "#b0bec5" }}>
+                      Data Compra: {formatarData(item.dataCompra)}
+                    </div>
+
+                    <div style={{ fontSize: "0.8rem", color: "#e0e0e0" }}>
+                      Lista: {item.nomeLista}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ fontSize: "0.9rem" }}>
+                Nenhum item comprado por este nome.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Exibe mensagem se não houver dados, e não estiver carregando/com erro */}
+
+      {!loading &&
+        !error &&
+        solicitados.length === 0 &&
+        comprados.length === 0 &&
+        usuario && (
+          <p style={{ textAlign: "center", marginTop: "1rem" }}>
+            Nenhum dado encontrado para o usuário "{usuario}" no período
+            selecionado.
+          </p>
+        )}
+    </div>
+  );
+};
+
+// ===============================================
+
+// 3. Componente para Relatório de Frequência de Compra
+
+// ===============================================
+
+const RelatorioFrequenciaDeCompra = ({ onBack }) => {
+  const [itemNome, setItemNome] = useState("");
+
+  const [frequencia, setFrequencia] = useState(null);
+
+  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState(null);
+
+  const buscarFrequencia = useCallback(
+    async (e) => {
+      if (e) e.preventDefault();
+
+      if (!itemNome.trim()) {
+        setError("Por favor, digite o nome de um item.");
+
+        setFrequencia(null);
+
+        return;
+      }
+
+      setLoading(true);
+
+      setError(null);
+
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/relatorio-frequencia`,
+          {
+            params: { itemNome: itemNome.trim() },
+          }
+        );
+
+        // O backend deve retornar: { itemNome, numeroTotalDeCompras, frequenciaMediaDias }
+
+        setFrequencia(response.data);
+      } catch (err) {
+        console.error("Erro ao buscar frequência:", err);
+
+        setError(
+          "Erro ao carregar o relatório de frequência. Verifique a conexão com a API."
+        );
+
+        setFrequencia(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [itemNome]
+  );
+
+  return (
+    <div className="lista-detalhes">
+      <h2>3. Frequência de Compra (Item)</h2>
+
+      <button
+        onClick={onBack}
+        style={{ marginBottom: "1rem", backgroundColor: "#dc3545" }}
+      >
+        Voltar para o Menu de Relatórios
+      </button>
+
+      <form
+        onSubmit={buscarFrequencia}
+        style={{ flexDirection: "column", gap: "1rem" }}
+      >
+        <input
+          type="text"
+          value={itemNome}
+          onChange={(e) => setItemNome(e.target.value)}
+          placeholder="Digite o nome do Item (ex: Leite Integral)"
+          required
+          style={{ color: "#333", backgroundColor: "#f0f0f0" }}
+        />
+
+        <button type="submit" style={{ backgroundColor: "#007bff" }}>
+          Calcular Frequência
+        </button>
+      </form>
+
+      {loading && <p style={{ textAlign: "center" }}>Carregando...</p>}
+
+      {error && (
+        <p style={{ color: "#ff5252", textAlign: "center" }}>{error}</p>
+      )}
+
+      {frequencia && !loading && !error && (
+        <div
+          style={{
+            marginTop: "1.5rem",
+            padding: "1rem",
+            border: "2px solid #64b5f6",
+            borderRadius: "8px",
+            backgroundColor: "#3949ab",
+          }}
+        >
+          <h3 style={{ marginBottom: "0.5rem", color: "#ffeb3b" }}>
+            Item: {frequencia.itemNome}
+          </h3>
+
+          <p style={{ fontSize: "1.1rem", margin: "0.5rem 0" }}>
+            Total de Compras Registradas:{" "}
+            <strong style={{ color: "#4CAF50" }}>
+              {frequencia.numeroTotalDeCompras}
+            </strong>
+          </p>
+
+          {frequencia.frequenciaMediaDias !== null ? (
+            <p style={{ fontSize: "1.2rem", fontWeight: "bold" }}>
+              Frequência Média de Compra:{" "}
+              <strong style={{ color: "#FFD700" }}>
+                {frequencia.frequenciaMediaDias.toFixed(1)} dias
+              </strong>
+            </p>
+          ) : (
+            <p style={{ fontSize: "1.1rem" }}>
+              A frequência média não pode ser calculada com menos de 2 compras.
+            </p>
+          )}
+        </div>
+      )}
+
+      {!loading &&
+        !error &&
+        frequencia &&
+        frequencia.numeroTotalDeCompras === 0 && (
+          <p style={{ textAlign: "center", marginTop: "1rem" }}>
+            Item "{itemNome}" nunca foi comprado.
+          </p>
+        )}
+    </div>
+  );
+};
+
+// ===============================================
+
+// 4. Componente de Detalhes da Lista
+
+// ===============================================
+
+const ListaDetalhes = ({
+  lista,
+  onVoltar,
+  onUpdateItem,
+  onAddItem,
+  onDeleteItem,
+}) => {
+  const [novoItem, setNovoItem] = useState("");
+
+  // Utiliza o nome salvo no localStorage como o nome do comprador/solicitante
+
+  const userName = localStorage.getItem("userName") || "Usuário Anônimo";
+
+  const handleAddItem = (e) => {
+    e.preventDefault();
+
+    if (novoItem.trim()) {
+      onAddItem(novoItem);
+
+      setNovoItem("");
+    }
+  };
+
+  return (
+    <div className="lista-detalhes">
+      <h2>{lista.nome}</h2>
+
+      <button onClick={onVoltar} style={{ marginBottom: "1rem" }}>
+        Voltar para Listas
+      </button>
+
+      <form onSubmit={handleAddItem}>
+        <input
+          type="text"
+          value={novoItem}
+          onChange={(e) => setNovoItem(e.target.value)}
+          placeholder="Adicionar novo item..."
+          required
+        />
+
+        <button type="submit">Adicionar</button>
+      </form>
+
+      <ul>
+        {lista.itens.length > 0 ? (
+          lista.itens.map((item) => (
+            <li
+              key={item._id}
+              onClick={() =>
+                onUpdateItem(item._id, {
+                  comprado: !item.comprado,
+
+                  comprador: !item.comprado ? userName : null,
+
+                  dataCompra: !item.comprado ? new Date() : null,
+                })
+              }
+            >
+              <span className={item.comprado ? "comprado" : ""}>
+                {item.nome}
+              </span>
+
+              {item.comprado && item.comprador && (
+                <span className="comprador-info">
+                  Comprado por: {item.comprador}
+                </span>
+              )}
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteItem(item._id);
+                }}
+                style={{ color: "#ff5252" }}
+              >
+                X
+              </button>
+            </li>
+          ))
+        ) : (
+          <li>Nenhum item nesta lista.</li>
+        )}
+      </ul>
+    </div>
+  );
+};
+
+// ===============================================
+
+// 5. Componente Principal App
+
+// ===============================================
+
+const App = () => {
+  const [listas, setListas] = useState([]);
+
+  const [nomeUsuario, setNomeUsuario] = useState(
+    localStorage.getItem("userName") || ""
+  );
+
+  const [novaListaNome, setNovaListaNome] = useState("");
+
+  const [listaSelecionada, setListaSelecionada] = useState(null);
+
+  // Estado para gerenciar a view: 'main', 'details', 'reports_menu', 'reports_data', 'reports_usuario', 'reports_frequencia'
+
+  const [view, setView] = useState("main");
+
+  useEffect(() => {
+    if (nomeUsuario) {
+      localStorage.setItem("userName", nomeUsuario);
+    } else {
+      localStorage.removeItem("userName");
+    }
+  }, [nomeUsuario]);
+
+  const fetchListas = useCallback(async () => {
+    try {
+      const response = await axios.get(API_BASE_URL);
+
+      setListas(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar listas:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchListas();
+
+    // Adiciona um polling para simular atualização em tempo real
+
+    const interval = setInterval(fetchListas, 5000);
+
+    return () => clearInterval(interval);
+  }, [fetchListas]);
+
+  const handleCriarLista = async (e) => {
+    e.preventDefault();
+
+    if (!novaListaNome.trim()) return;
+
+    try {
+      const novaLista = {
+        nome: novaListaNome,
+        criadoPor: nomeUsuario || "Usuário Anônimo",
+        itens: [],
+        dataCriacao: new Date()
+      };
+
+      const response = await axios.post(API_BASE_URL, novaLista);
+
+      setListas([...listas, response.data]);
+
+      setNovaListaNome("");
+    } catch (error) {
+      console.error("Erro ao criar lista:", error);
+      alert("Erro ao criar a lista. Por favor, tente novamente.");
+    }
+  };
+
+  const handleExcluirLista = async (id, e) => {
+    e.stopPropagation();
+
+    try {
+      await axios.delete(`${API_BASE_URL}/${id}`);
+
+      setListas(listas.filter((l) => l._id !== id));
+
+      if (listaSelecionada && listaSelecionada._id === id) {
+        setListaSelecionada(null);
+
+        setView("main");
+      }
+    } catch (error) {
+      console.error("Erro ao excluir lista:", error);
+    }
+  };
+
+  const handleSelecionarLista = (lista) => {
+    setListaSelecionada(lista);
+
+    setView("details");
+  };
+
+  const handleVoltarParaListas = () => {
+    setListaSelecionada(null);
+
+    setView("main");
+
+    fetchListas(); // Recarrega as listas ao voltar
+  };
+
+  const handleUpdateItem = async (itemId, updateData) => {
+    try {
+      console.log('Atualizando item:', itemId, 'com dados:', updateData);
+      
+      const updatedLista = await axios.put(
+        `${API_BASE_URL}/${listaSelecionada._id}/itens/${itemId}`,
+        updateData
+      );
+
+      console.log('Resposta do servidor:', updatedLista.data);
+
+      setListaSelecionada(updatedLista.data);
+
+      // Atualiza a lista geral também
+      setListas(
+        listas.map((l) =>
+          l._id === listaSelecionada._id ? updatedLista.data : l
+        )
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar item:", error);
+      alert("Erro ao atualizar o item. Por favor, tente novamente.");
+    }
+  };
+
+  const handleAddItem = async (nomeItem) => {
+    try {
+      if (!listaSelecionada || !listaSelecionada._id) {
+        console.error("Nenhuma lista selecionada");
+        return;
+      }
+
+      console.log("Adicionando item:", nomeItem, "à lista:", listaSelecionada._id);
+
+      const updatedLista = await axios.post(
+        `${API_BASE_URL}/${listaSelecionada._id}/itens`,
+        { nome: nomeItem }
+      );
+
+      console.log("Resposta do servidor:", updatedLista.data);
+
+      setListaSelecionada(updatedLista.data);
+
+      setListas(
+        listas.map((l) =>
+          l._id === listaSelecionada._id ? updatedLista.data : l
+        )
+      );
+    } catch (error) {
+      console.error("Erro ao adicionar item:", error);
+      alert("Erro ao adicionar item. Por favor, tente novamente.");
+    }
+  };
+
+  const handleDeleteItem = async (itemId) => {
+    try {
+      console.log('Requisitando exclusão do item', itemId, 'na lista', listaSelecionada?._id);
+      const response = await axios.delete(
+        `${API_BASE_URL}/${listaSelecionada._id}/itens/${itemId}`
+      );
+
+      console.log('Resposta delete item:', response.status, response.data);
+
+      const updatedLista = response.data;
+
+      setListaSelecionada(updatedLista);
+
+      setListas(
+        listas.map((l) => (l._id === listaSelecionada._id ? updatedLista : l))
+      );
+    } catch (error) {
+      console.error("Erro ao deletar item:", error);
+      console.error('Erro detalhe response:', error.response?.status, error.response?.data);
+      alert('Erro ao deletar item: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // Renderiza a view correta
+
+  const renderView = () => {
+    switch (view) {
+      case "reports_menu":
+        return (
+          <MenuRelatorios setView={setView} onBack={handleVoltarParaListas} />
+        );
+
+      case "reports_data":
+        return (
+          <RelatorioComprasPorData onBack={() => setView("reports_menu")} />
+        );
+
+      case "reports_usuario":
+        return (
+          <RelatorioComprasPorUsuario onBack={() => setView("reports_menu")} />
+        );
+
+      case "reports_frequencia":
+        return (
+          <RelatorioFrequenciaDeCompra onBack={() => setView("reports_menu")} />
+        );
+
+      case "details":
+        return (
+          <ListaDetalhes
+            lista={listaSelecionada}
+            onVoltar={handleVoltarParaListas}
+            onUpdateItem={handleUpdateItem}
+            onAddItem={handleAddItem}
+            onDeleteItem={handleDeleteItem}
+          />
+        );
+
+      case "main":
+
+      default:
+        return (
+          <>
+            <div className="listas-existentes">
+              <h2>Listas Ativas</h2>
+
+              <form onSubmit={handleCriarLista}>
+                <input
+                  type="text"
+                  value={novaListaNome}
+                  onChange={(e) => setNovaListaNome(e.target.value)}
+                  placeholder="Nome da nova lista"
+                  required
+                />
+
+                <button type="submit">Criar</button>
+              </form>
+
+              <ul>
+                {listas.length > 0 ? (
+                  listas.map((lista) => (
+                    <li
+                      key={lista._id}
+                      onClick={() => handleSelecionarLista(lista)}
+                    >
+                      <button>{lista.nome}</button>
+
+                      <button
+                        onClick={(e) => handleExcluirLista(lista._id, e)}
+                        style={{ color: "#ff5252" }}
+                      >
+                        X
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  <li>Nenhuma lista ativa. Crie a primeira!</li>
+                )}
+              </ul>
+            </div>
+
+            <div
+              className="lista-detalhes"
+              style={{ justifyContent: "center", alignItems: "center" }}
+            >
+              <h2 style={{ textAlign: "center" }}>Opções</h2>
+
+              <button
+                onClick={() => setView("reports_menu")}
+                style={{
+                  padding: "1rem 2rem",
+                  backgroundColor: "#3949ab",
+                  color: "white",
+                }}
+              >
+                Abrir Menu de Relatórios
+              </button>
+            </div>
+          </>
+        );
+    }
+  };
+
+  return (
+    <div className="container">
+      <header>
+        <h1>Lista de Compras Colaborativa</h1>
+
+        <input
+          type="text"
+          value={nomeUsuario}
+          onChange={(e) => setNomeUsuario(e.target.value)}
+          placeholder="Seu nome"
+          aria-label="Seu nome"
+        />
+      </header>
+
+      <main>{renderView()}</main>
+    </div>
+  );
+};
 
 export default App;

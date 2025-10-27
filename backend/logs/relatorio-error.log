@@ -1,0 +1,19 @@
+
+=== 2025-10-27T01:16:11.819Z ===
+{
+  "timestamp": "2025-10-27T01:16:11.817Z",
+  "name": "RangeError",
+  "message": "Invalid time value",
+  "type": "RangeError",
+  "path": "/relatorio-compras",
+  "query": {
+    "nomeLista": "01/09"
+  },
+  "stack": [
+    "RangeError: Invalid time value",
+    "    at Date.toISOString (<anonymous>)",
+    "    at C:\\Users\\GUERREIRO\\shopping-list-app\\backend\\routes\\listas.js:91:35",
+    "    at Layer.handle [as handle_request] (C:\\Users\\GUERREIRO\\shopping-list-app\\backend\\node_modules\\express\\lib\\router\\layer.js:95:5)",
+    "    at next (C:\\Users\\GUERREIRO\\shopping-list-app\\backend\\node_modules\\express\\lib\\router\\route.js:149:13)"
+  ]
+}

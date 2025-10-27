@@ -26,6 +26,8 @@ body {
 header {
   text-align: center;
   margin-bottom: 2rem;
+  /* Garantindo que o cabeçalho use a largura total */
+  width: 100%; 
 }
 
 header input {
@@ -34,10 +36,12 @@ header input {
   border: 1px solid #455a64;
   background-color: #1849b3;
   color: #ffffff;
-  width: 100%;
-  max-width: 300px;
+  /* Corrigido: forçando 100% de largura para ser responsivo em celular */
+  width: 90%;
+  max-width: 300px; 
   font-size: 1rem;
 }
+
 
 /* Alterado para que todos os campos de entrada tenham o mesmo estilo */
 input[type="text"]::placeholder {
@@ -109,6 +113,12 @@ li {
   padding: 0.75rem;
   border-bottom: 1px solid #5c6bc0;
   font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+li:hover {
+  background-color: #4a5fc1;
 }
 
 li:last-child {

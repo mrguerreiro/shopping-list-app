@@ -6,7 +6,12 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+// Configuração do CORS
+app.use(cors({
+  origin: 'http://localhost:5173', // URL do frontend Vite
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
+}));
 app.use(express.json());
 
 // Conexão com o MongoDB
@@ -18,76 +23,26 @@ mongoose
   .then(() => console.log("MongoDB conectado"))
   .catch((err) => console.error("Erro na conexão com o MongoDB:", err));
 
-// Definição dos Schemas (Modelos de Dados)
-const Schema = mongoose.Schema;
+// ===========================================
+// IMPORTAÇÃO DOS MODELOS (MODULARIZAÇÃO COMPLETA)
+// ===========================================
+// Assumimos que estes arquivos existem em backend/models/
+const Lista = require('./models/Lista'); 
+const Historico = require('./models/Historico'); 
 
-const itemSchema = new Schema({
-  nome: { type: String, required: true },
-  comprado: { type: Boolean, default: false },
-  comprador: { type: String, default: null },
-});
-
-const listaSchema = new Schema({
-  nome: { type: String, required: true },
-  criadoPor: { type: String, required: true },
-  itens: [itemSchema],
-  dataCriacao: { type: Date, default: Date.now },
-});
-
-const historicoSchema = new Schema({
-  nome: { type: String, required: true },
-  criadoPor: { type: String, required: true },
-  itens: [
-    {
-      nome: { type: String, required: true },
-      comprado: { type: Boolean, default: false },
-      comprador: { type: String, default: null },
-    },
-  ],
-  dataCriacao: { type: Date, required: true },
-  dataConclusao: { type: Date, default: Date.now },
-});
-
-const Lista = mongoose.model("Lista", listaSchema);
-const Historico = mongoose.model("Historico", historicoSchema);
+// ===========================================
+// INCLUSÃO DAS ROTAS DE LISTAS E RELATÓRIOS
+// ===========================================
+// Assumimos que este arquivo existe em backend/routes/
+const listasRoutes = require('./routes/listas'); 
+app.use('/api/listas', listasRoutes);
 
 // Rotas da API
+
 app.get("/", (req, res) => res.send("API de Lista de Compras Online!"));
 
-// Criar nova lista
-app.post("/api/listas", async (req, res) => {
-  const novaLista = new Lista(req.body);
-  try {
-    await novaLista.save();
-    res.status(201).json(novaLista);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// Obter todas as listas
-app.get("/api/listas", async (req, res) => {
-  try {
-    const listas = await Lista.find();
-    res.json(listas);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Atualizar uma lista (adicionar/remover item, marcar como comprado, etc.)
-app.put("/api/listas/:id", async (req, res) => {
-  try {
-    const lista = await Lista.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    res.json(lista);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// Rota para mover lista para histórico e depois deletar a original
+// Rota para mover lista para histórico e depois deletar a original (DELETE /api/listas/:id)
+// Esta rota precisa estar aqui pois usa o modelo Historico para criar o registro antes de apagar a Lista
 app.delete("/api/listas/:id", async (req, res) => {
   try {
     const lista = await Lista.findById(req.params.id);
@@ -95,16 +50,24 @@ app.delete("/api/listas/:id", async (req, res) => {
       return res.status(404).json({ message: "Lista não encontrada." });
     }
 
+    // Mapeia os itens para garantir que o formato do Histórico seja mantido
+    const itensParaHistorico = lista.itens.map(item => ({
+        // Usamos .toObject() para garantir que pegamos os dados puros do Mongoose
+        ...item.toObject(), 
+        dataCompra: item.dataCompra || null, // Garante que dataCompra existe para relatórios
+    }));
+
     const listaParaHistorico = new Historico({
       nome: lista.nome,
       criadoPor: lista.criadoPor,
-      itens: lista.itens,
+      itens: itensParaHistorico,
       dataCriacao: lista.dataCriacao,
       dataConclusao: Date.now(),
     });
 
     await listaParaHistorico.save();
 
+    // Deleta a lista original
     await lista.deleteOne();
 
     res.json({ message: "Lista movida para histórico e apagada com sucesso." });
@@ -113,54 +76,6 @@ app.delete("/api/listas/:id", async (req, res) => {
   }
 });
 
-// Rota de Relatórios: O que foi comprado e quando
-app.get("/api/relatorios/comprados-por-data", async (req, res) => {
-  try {
-    const dadosRelatorio = await Historico.aggregate([
-      { $unwind: "$itens" },
-      { $match: { "itens.comprado": true } },
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$dataConclusao" },
-          },
-          totalComprado: { $sum: 1 },
-          itens: {
-            $push: {
-              nome: "$itens.nome",
-              compradoPor: "$itens.comprador",
-            },
-          },
-        },
-      },
-      { $sort: { _id: -1 } },
-    ]);
-    res.json(dadosRelatorio);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Rota de Relatórios: Frequência de compra por item
-app.get("/api/relatorios/frequencia-item", async (req, res) => {
-  try {
-    const dadosRelatorio = await Historico.aggregate([
-      { $unwind: "$itens" },
-      { $match: { "itens.comprado": true } },
-      {
-        $group: {
-          _id: "$itens.nome",
-          contagem: { $sum: 1 },
-          compradoPor: { $push: "$itens.comprador" },
-        },
-      },
-      { $sort: { contagem: -1 } },
-    ]);
-    res.json(dadosRelatorio);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // Iniciar o servidor
 app.listen(port, () => {
