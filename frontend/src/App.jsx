@@ -4,11 +4,11 @@ import axios from "axios";
 
 import "./App.css";
 
-// URL base da sua API (Atualize com a sua URL de hospedagem quando disponível)
-
-// const API_BASE_URL = 'https://sua-api-publica.com/api/listas'; // Exemplo de URL pública
-
-const API_BASE_URL = "http://localhost:5001/api/listas";
+// URL base da API - usa variável de ambiente ou fallback para localhost
+// Para produção, configure VITE_API_URL no arquivo .env antes do build
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api/listas`
+  : "http://localhost:5001/api/listas";
 
 // ===============================================
 
@@ -460,8 +460,9 @@ const RelatorioFrequenciaDeCompra = ({ onBack }) => {
       setError(null);
 
       try {
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
         const response = await axios.get(
-          'http://localhost:5001/api/relatorios/frequencia',
+          `${baseUrl}/api/relatorios/frequencia`,
           {
             params: { itemNome: itemNome.trim() },
           }
