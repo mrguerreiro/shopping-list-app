@@ -7,6 +7,77 @@ const Lista = require('../models/Lista');
 const Historico = require('../models/Historico');
 
 // ===================================
+// ROTAS DE RELATÓRIO (precisam vir antes das rotas parametrizadas)
+// ===================================
+
+// Rota: Relatório de Frequência de Compra (GET /api/listas/relatorio-frequencia)
+router.get('/relatorio-frequencia', async (req, res) => {
+    try {
+        console.log('[relatorio-frequencia] handler start - query:', req.query);
+        const { itemNome } = req.query;
+        if (!itemNome) {
+            return res.status(400).json({ message: 'Nome do item é obrigatório' });
+        }
+
+        // Normaliza e cria regex de busca (escape do termo para evitar regex injection)
+        const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const itemRegex = new RegExp(escapeRegex(itemNome), 'i');
+
+        const pipeline = [
+            { $unwind: '$itens' },
+            { $match: { 'itens.comprado': true, 'itens.nome': itemRegex, 'itens.dataCompra': { $ne: null } } },
+            { $project: { nome: '$itens.nome', dataCompra: '$itens.dataCompra' } }
+        ];
+
+        console.log('[relatorio-frequencia] running aggregations...');
+        const comprasAtivas = await Lista.aggregate(pipeline);
+        console.log('[relatorio-frequencia] aggregations done - ativas:', comprasAtivas.length);
+
+        // Coerção de data: garantir que dataCompra é um timestamp (number)
+        const normalize = (arr) => arr
+            .map(it => ({ nome: it.nome ? String(it.nome).trim() : '', dataCompra: it.dataCompra ? new Date(it.dataCompra) : null }))
+            .filter(it => it.nome && it.dataCompra && !isNaN(it.dataCompra.getTime()))
+            .map(it => ({ nome: String(it.nome).trim(), nomeNorm: String(it.nome).trim().toLowerCase(), dataCompra: it.dataCompra.getTime() }));
+
+        const normAtivas = normalize(comprasAtivas);
+        console.log('[relatorio-frequencia] normalized - ativas:', normAtivas.length);
+
+        // Filtrar apenas pelo item solicitado (ignorando comprador)
+        const termoNorm = String(itemNome).trim().toLowerCase();
+        const todasCompras = normAtivas
+            .filter(it => it.nomeNorm.includes(termoNorm))
+            .sort((a, b) => b.dataCompra - a.dataCompra);
+
+        let frequenciaMediaDias = null;
+        if (todasCompras.length > 1) {
+            let somaIntervalos = 0;
+            for (let i = 1; i < todasCompras.length; i++) {
+                const intervalo = todasCompras[i - 1].dataCompra - todasCompras[i].dataCompra; // ms
+                somaIntervalos += intervalo / (1000 * 60 * 60 * 24);
+            }
+            frequenciaMediaDias = somaIntervalos / (todasCompras.length - 1);
+        }
+
+        // Reconstruir ultimas compras com ISO dates para resposta
+        const ultimasCompras = todasCompras.slice(0, 5).map(it => ({ 
+            nome: it.nome, 
+            dataCompra: new Date(it.dataCompra).toISOString() 
+        }));
+
+        console.log('[relatorio-frequencia] result - total:', todasCompras.length, 'freqDays:', frequenciaMediaDias);
+        res.json({ 
+            itemNome: itemNome, 
+            numeroTotalDeCompras: todasCompras.length, 
+            frequenciaMediaDias, 
+            ultimasCompras 
+        });
+    } catch (err) {
+        console.error('Erro no relatório de frequência:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===================================
 // ROTAS CRUD (INCLUINDO A ROTA POST QUE SUMIU)
 // ===================================
 
@@ -116,14 +187,10 @@ router.get('/relatorio-compras', async (req, res) => {
             console.log('Filtro por nomeLista detectado:', nomeLista);
             const nomeRegex = new RegExp(String(nomeLista), 'i');
 
-            // Busca listas ativas e histórico que tenham o nome informado
-            const [listasAtivasRaw, listasHistoricoRaw] = await Promise.all([
-                Lista.find({ nome: nomeRegex }).lean(),
-                Historico.find({ nome: nomeRegex }).lean()
-            ]);
+            // Busca somente listas ativas (não deletadas) que tenham o nome informado
+            const listasAtivasRaw = await Lista.find({ nome: nomeRegex }).lean();
 
             console.log('Listas encontradas (ativas):', listasAtivasRaw.length);
-            console.log('Listas encontradas (historico):', listasHistoricoRaw.length);
 
             const itensResultado = [];
 
@@ -139,7 +206,7 @@ router.get('/relatorio-compras', async (req, res) => {
             const mapearItens = (lista, origem) => {
                 if (!lista || !Array.isArray(lista.itens)) return;
                 for (const item of lista.itens) {
-                    // Apenas itens marcados como comprados devem ser retornados (solicitação do usuário)
+                    // Apenas itens marcados como comprados devem ser retornados
                     if (!item || !item.comprado) continue;
 
                     // Se houver filtro por data, só considerar itens com dataCompra válida no período
@@ -160,7 +227,6 @@ router.get('/relatorio-compras', async (req, res) => {
             };
 
             for (const l of listasAtivasRaw) mapearItens(l, 'lista_ativa');
-            for (const h of listasHistoricoRaw) mapearItens(h, 'historico');
 
             // Ordena por dataCompra (mais recente primeiro)
             itensResultado.sort((a, b) => {
@@ -201,24 +267,18 @@ router.get('/relatorio-compras', async (req, res) => {
             }
         ];
 
-        // 5. Executa queries em paralelo
+        // 5. Executa query apenas nas listas ativas (somente listas não deletadas)
         let listasAtivas = [];
-        let listasHistorico = [];
         try {
-            [listasAtivas, listasHistorico] = await Promise.all([
-                Lista.aggregate(pipeline),
-                Historico.aggregate(pipeline)
-            ]);
+            listasAtivas = await Lista.aggregate(pipeline);
 
-            if (!Array.isArray(listasAtivas) || !Array.isArray(listasHistorico)) {
+            if (!Array.isArray(listasAtivas)) {
                 throw new Error('Resultado inválido da busca no banco de dados');
             }
 
             console.log('Resultados da busca:', {
                 listasAtivas: listasAtivas.length,
-                listasHistorico: listasHistorico.length,
-                primeiraListaAtiva: listasAtivas[0]?._id || 'Nenhuma',
-                primeiraListaHistorico: listasHistorico[0]?._id || 'Nenhuma'
+                primeiraListaAtiva: listasAtivas[0]?._id || 'Nenhuma'
             });
         } catch (dbError) {
             console.error('Erro na busca do banco de dados:', dbError);
@@ -283,45 +343,7 @@ router.get('/relatorio-compras', async (req, res) => {
             }
         }
 
-        // 5. Processa listas do histórico
-        console.log('\n=== PROCESSANDO HISTÓRICO ===');
-        for (const lista of listasHistorico) {
-            if (!lista || !Array.isArray(lista.itens)) {
-                console.warn('Lista do histórico inválida:', lista?._id);
-                continue;
-            }
-
-            console.log(`Processando lista histórica: ${lista._id} - ${lista.nome || 'Sem nome'}`);
-            for (const item of lista.itens) {
-                try {
-                    if (!item || !item.comprado || !item.dataCompra) {
-                        continue;
-                    }
-
-                    const dataCompra = new Date(item.dataCompra);
-                    if (isNaN(dataCompra.getTime())) {
-                        console.warn('Data de compra inválida no histórico:', { lista: lista._id, item: item._id, dataCompra: item.dataCompra });
-                        continue;
-                    }
-
-                    if (dataCompra >= dataInicioObj && dataCompra <= dataFimObj) {
-                        itensComprados.push({
-                            _id: (item._id || item.id)?.toString(),
-                            nome: item.nome || 'Item sem nome',
-                            comprador: item.comprador || 'Não informado',
-                            dataCompra: dataCompra,
-                            nomeLista: lista.nome || 'Lista sem nome',
-                            criadoPor: lista.criadoPor || 'Não informado',
-                            origem: 'historico'
-                        });
-
-                        console.log('Item histórico adicionado:', { nome: item.nome, dataCompra: dataCompra.toISOString() });
-                    }
-                } catch (itemErr) {
-                    console.error('Erro ao processar item do histórico:', { erro: itemErr.message, item: item });
-                }
-            }
-        }
+        // NOTA: Não processamos o histórico aqui — o relatório deve considerar apenas itens de listas não deletadas (coleção Lista).
 
         console.log('\n=== FINALIZANDO RELATÓRIO ===');
         // Ordena por data de compra (mais recente primeiro)
@@ -387,7 +409,9 @@ router.get('/', async (req, res) => {
         const listas = await Lista.find().sort({ dataCriacao: -1 });
         res.json(listas);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        const payload = { error: err.message };
+        if (process.env.NODE_ENV === 'development') payload.stack = err.stack;
+        res.status(500).json(payload);
     }
 });
 
@@ -521,8 +545,6 @@ router.delete('/:id/itens/:itemId', async (req, res) => {
     }
 });
 
-module.exports = router;
-
 // Rota: Relatório de Compras por Usuário (GET /api/listas/relatorio-usuario)
 router.get('/relatorio-usuario/:tipo', async (req, res) => {
     try {
@@ -536,8 +558,20 @@ router.get('/relatorio-usuario/:tipo', async (req, res) => {
         console.log('Buscando relatório para usuário:', usuario, 'tipo:', tipo);
         console.log('Período:', dataInicio, 'até', dataFim);
 
-        const dataInicioObj = new Date(dataInicio);
-        const dataFimObj = new Date(dataFim);
+        // Parsear datas YYYY-MM-DD como datas LOCAIS (consistente com relatorio-compras)
+        const parseLocalDate = (s) => {
+            const parts = String(s).split('-').map(Number);
+            if (parts.length !== 3) return new Date(NaN);
+            const [y, m, d] = parts;
+            return new Date(y, m - 1, d);
+        };
+
+        const dataInicioObj = parseLocalDate(dataInicio);
+        const dataFimObj = parseLocalDate(dataFim);
+        if (isNaN(dataInicioObj.getTime()) || isNaN(dataFimObj.getTime())) {
+            return res.status(400).json({ message: 'Datas inválidas. Use o formato YYYY-MM-DD' });
+        }
+        dataInicioObj.setHours(0, 0, 0, 0);
         dataFimObj.setHours(23, 59, 59, 999);
 
         let resultado = [];
@@ -598,19 +632,25 @@ router.get('/relatorio-usuario/:tipo', async (req, res) => {
             });
 
         } else if (tipo === 'solicitados') {
-            const [listasAtivas, listasHistorico] = await Promise.all([
-                Lista.find({
+            // Por padrão, "solicitados" retorna somente listas ativas (não incluir histórico)
+            // Para incluir histórico, envie ?incluirHistorico=true
+            const incluirHistorico = String(req.query.incluirHistorico || '').toLowerCase() === 'true';
+
+            const listasAtivas = await Lista.find({
+                criadoPor: { $regex: new RegExp(usuario, 'i') },
+                dataCriacao: { $gte: dataInicioObj, $lte: dataFimObj }
+            }).select('nome dataCriacao criadoPor').lean();
+
+            let listasHistorico = [];
+            if (incluirHistorico) {
+                listasHistorico = await Historico.find({
                     criadoPor: { $regex: new RegExp(usuario, 'i') },
                     dataCriacao: { $gte: dataInicioObj, $lte: dataFimObj }
-                }).select('nome dataCriacao criadoPor'),
-                Historico.find({
-                    criadoPor: { $regex: new RegExp(usuario, 'i') },
-                    dataCriacao: { $gte: dataInicioObj, $lte: dataFimObj }
-                }).select('nome dataCriacao criadoPor')
-            ]);
+                }).select('nome dataCriacao criadoPor').lean();
+            }
 
             console.log('Listas ativas encontradas:', listasAtivas.length);
-            console.log('Listas no histórico encontradas:', listasHistorico.length);
+            console.log('Listas no histórico encontradas (incluídas):', listasHistorico.length);
 
             resultado = [...listasAtivas, ...listasHistorico].sort((a, b) => {
                 return new Date(b.dataCriacao) - new Date(a.dataCriacao);
@@ -625,74 +665,5 @@ router.get('/relatorio-usuario/:tipo', async (req, res) => {
     }
 });
 
-// Rota: Relatório de Frequência de Compra (GET /api/listas/relatorio-frequencia)
-router.get('/relatorio-frequencia', async (req, res) => {
-    try {
-        const { itemNome } = req.query;
-
-        if (!itemNome) {
-            return res.status(400).json({ message: 'Nome do item é obrigatório' });
-        }
-
-        const itemRegex = new RegExp(itemNome, 'i');
-
-        const [comprasAtivas, comprasHistorico] = await Promise.all([
-            Lista.aggregate([
-                { $unwind: '$itens' },
-                {
-                    $match: {
-                        'itens.comprado': true,
-                        'itens.nome': itemRegex,
-                        'itens.dataCompra': { $ne: null }
-                    }
-                },
-                {
-                    $project: {
-                        nome: '$itens.nome',
-                        dataCompra: '$itens.dataCompra'
-                    }
-                }
-            ]),
-            Historico.aggregate([
-                { $unwind: '$itens' },
-                {
-                    $match: {
-                        'itens.comprado': true,
-                        'itens.nome': itemRegex,
-                        'itens.dataCompra': { $ne: null }
-                    }
-                },
-                {
-                    $project: {
-                        nome: '$itens.nome',
-                        dataCompra: '$itens.dataCompra'
-                    }
-                }
-            ])
-        ]);
-
-        const todasCompras = [...comprasAtivas, ...comprasHistorico].sort((a, b) => b.dataCompra - a.dataCompra);
-
-        let frequenciaMediaDias = null;
-        if (todasCompras.length > 1) {
-            let somaIntervalos = 0;
-            for (let i = 1; i < todasCompras.length; i++) {
-                const intervalo = todasCompras[i-1].dataCompra - todasCompras[i].dataCompra;
-                somaIntervalos += intervalo / (1000 * 60 * 60 * 24);
-            }
-            frequenciaMediaDias = somaIntervalos / (todasCompras.length - 1);
-        }
-
-        res.json({
-            itemNome: itemNome,
-            numeroTotalDeCompras: todasCompras.length,
-            frequenciaMediaDias: frequenciaMediaDias,
-            ultimasCompras: todasCompras.slice(0, 5)
-        });
-    } catch (err) {
-        console.error('Erro no relatório de frequência:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
+// Agora exportamos o router após todas as rotas serem definidas
 module.exports = router;

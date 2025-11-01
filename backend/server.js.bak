@@ -1,0 +1,247 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+require("dotenv").config();
+
+const fs = require('fs');
+const path = require('path');
+
+// Função para debug de requisições
+const requestDebug = (req, res, next) => {
+  const start = Date.now();
+  const logFile = path.join(__dirname, 'logs', 'server.log');
+  
+  const logEntry = `
+============================================
+[${new Date().toISOString()}] ${req.method} ${req.url}
+Query: ${JSON.stringify(req.query)}
+Headers: ${JSON.stringify(req.headers)}
+============================================
+`;
+
+  fs.appendFileSync(logFile, logEntry);
+  
+  // Captura a resposta
+  const oldSend = res.send;
+  res.send = function(data) {
+    const responseLog = `
+Response [${Date.now() - start}ms]:
+${typeof data === 'string' ? data : JSON.stringify(data)}
+============================================
+`;
+    fs.appendFileSync(logFile, responseLog);
+    return oldSend.apply(res, arguments);
+  };
+  
+  next();
+};
+
+const app = express();
+const port = process.env.PORT || 5001;
+
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`DEBUG: ${req.method} ${req.originalUrl}`);
+  next();
+  // Debug middleware para logging de todas as requisições
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    next();
+  });
+
+  // Configuração do CORS apenas com opções essenciais
+  app.use(cors({
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT', 'DELETE']
+  }));
+
+  // Rota de teste para verificar se o servidor está online
+  app.get('/test', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Carregamento das rotas
+  console.log('Carregando rotas de relatórios...');
+  const relatoriosRoutes = require('./routes/relatorios');
+
+  console.log('Registrando rotas de relatórios...');
+  app.use('/api/relatorios', relatoriosRoutes);
+  console.log('Rotas de relatórios registradas!');
+
+  console.log('Carregando rotas de listas...');
+  const listasRoutes = require('./routes/listas');
+
+  console.log('Registrando rotas de listas...');
+  app.use('/api/listas', listasRoutes);
+  console.log('Rotas de listas registradas!');
+
+  // Rota para verificar rotas carregadas
+  app.get('/api/routes', (req, res) => {
+    const routes = [];
+    app._router.stack.forEach(middleware => {
+      if (middleware.route) {
+        routes.push(`${middleware.route.stack[0].method.toUpperCase()} ${middleware.route.path}`);
+      } else if (middleware.name === 'router') {
+        middleware.handle.stack.forEach(layer => {
+          if (layer.route) {
+            const path = middleware.regexp.toString()
+              .replace('/^\\', '')
+              .replace('\\/?(?=\\/|$)/i', '')
+              .replace(/\\/g, '') + layer.route.path;
+            routes.push(`${layer.route.stack[0].method.toUpperCase()} ${path}`);
+          }
+        });
+      }
+    });
+    res.json(routes);
+  });
+  console.log(`[DEBUG] ${req.method} ${req.url}`);
+  next();
+});
+
+// Rotas principais
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: 'online',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.use(express.json());
+// Debug middleware e rota de status
+app.use((req, res, next) => {
+  console.log(`[DEBUG] ${req.method} ${req.url} - Query:`, req.query);
+  next();
+});
+
+app.get('/api/debug', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach((middleware) => {
+    if (middleware.name === 'router') {
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          routes.push(`${handler.route.stack[0].method.toUpperCase()} ${middleware.regexp}${handler.route.path}`);
+        }
+      });
+    }
+  });
+  res.json({
+    status: 'online',
+    routes: routes,
+    timestamp: new Date().toISOString()
+  });
+});
+
+
+// Conexão com o MongoDB
+mongoose
+  .connect(process.env.MONGO_URI, {
+// Debug middleware
+console.log('Configurando middleware de debug...');
+app.use((req, res, next) => {
+  console.log(`[DEBUG] Recebida requisição: ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// Rota de debug
+console.log('Configurando rota /api/debug...');
+app.get('/api/debug', (req, res) => {
+  try {
+    console.log('Listando rotas disponíveis...');
+    const routes = [];
+
+    // Rotas registradas diretamente no app
+    app._router.stack.forEach(layer => {
+      if (layer.route) {
+        routes.push(`${layer.route.stack[0].method.toUpperCase()} ${layer.route.path}`);
+      }
+      // Rotas registradas via middleware router
+      else if (layer.name === 'router') {
+        layer.handle.stack.forEach(routerLayer => {
+          if (routerLayer.route) {
+            const method = routerLayer.route.stack[0].method.toUpperCase();
+            const path = layer.regexp.toString()
+              .replace('/^\\', '')
+              .replace('\\/?(?=\\/|$)/i', '')
+              .replace(/\\/g, '') + routerLayer.route.path;
+            routes.push(`${method} ${path}`);
+          }
+        });
+      }
+    });
+
+    console.log('Rotas encontradas:', routes);
+    res.json({
+      status: 'online',
+      routes: routes,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Erro ao listar rotas:', err);
+    res.status(500).json({
+      error: 'Erro ao listar rotas',
+      details: err.message
+    });
+  }
+});
+// Rotas principais
+const listasRoutes = require('./routes/listas'); 
+app.use('/api/listas', listasRoutes);
+
+// Rotas de relatórios (separadas para evitar conflito de rotas)
+console.log('Carregando rotas de relatórios...');
+const relatoriosRoutes = require('./routes/relatorios');
+console.log('Configurando rotas de relatórios...');
+app.use('/api/relatorios', relatoriosRoutes);
+console.log('Rotas configuradas!');
+
+// Middleware para capturar rotas não encontradas
+app.use((req, res, next) => {
+    console.log(`[404] Rota não encontrada: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ message: 'Rota não encontrada' });
+});
+
+// Rotas da API
+
+app.get("/", (req, res) => res.send("API de Lista de Compras Online!"));
+
+// Rota para mover lista para histórico e depois deletar a original (DELETE /api/listas/:id)
+// Esta rota precisa estar aqui pois usa o modelo Historico para criar o registro antes de apagar a Lista
+app.delete("/api/listas/:id", async (req, res) => {
+  try {
+    const lista = await Lista.findById(req.params.id);
+    if (!lista) {
+      return res.status(404).json({ message: "Lista não encontrada." });
+    }
+
+    // Mapeia os itens para garantir que o formato do Histórico seja mantido
+    const itensParaHistorico = lista.itens.map(item => ({
+        // Usamos .toObject() para garantir que pegamos os dados puros do Mongoose
+        ...item.toObject(), 
+        dataCompra: item.dataCompra || null, // Garante que dataCompra existe para relatórios
+    }));
+
+    const listaParaHistorico = new Historico({
+      nome: lista.nome,
+      criadoPor: lista.criadoPor,
+      itens: itensParaHistorico,
+      dataCriacao: lista.dataCriacao,
+      dataConclusao: Date.now(),
+    });
+
+    await listaParaHistorico.save();
+
+    // Deleta a lista original
+    await lista.deleteOne();
+
+    res.json({ message: "Lista movida para histórico e apagada com sucesso." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Iniciar o servidor
+app.listen(port, () => {
+  console.log(`Servidor rodando na porta: ${port}`);
+});

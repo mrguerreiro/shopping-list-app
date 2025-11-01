@@ -4,45 +4,42 @@ const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5001;
 
-// Configuração do CORS
-app.use(cors({
-  origin: 'http://localhost:5173', // URL do frontend Vite
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
-}));
+// Debug middleware
+console.log('Inicializando servidor...');
 app.use(express.json());
+app.use(cors());
 
-// Conexão com o MongoDB
+// Rota de teste
+app.get('/test', (_, res) => res.send('ok'));
+
+// Configuração do MongoDB
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_URI, {})
   .then(() => console.log("MongoDB conectado"))
   .catch((err) => console.error("Erro na conexão com o MongoDB:", err));
 
-// ===========================================
-// IMPORTAÇÃO DOS MODELOS (MODULARIZAÇÃO COMPLETA)
-// ===========================================
-// Assumimos que estes arquivos existem em backend/models/
+// Importação dos modelos
+console.log('Carregando modelos...');
 const Lista = require('./models/Lista'); 
 const Historico = require('./models/Historico'); 
 
-// ===========================================
-// INCLUSÃO DAS ROTAS DE LISTAS E RELATÓRIOS
-// ===========================================
-// Assumimos que este arquivo existe em backend/routes/
-const listasRoutes = require('./routes/listas'); 
+// Rotas
+console.log('Carregando rotas de relatórios...');
+const relatoriosRoutes = require('./routes/relatorios');
+app.use('/api/relatorios', relatoriosRoutes);
+console.log('Rotas de relatórios carregadas!');
+
+console.log('Carregando rotas de listas...');
+const listasRoutes = require('./routes/listas');
 app.use('/api/listas', listasRoutes);
+console.log('Rotas de listas carregadas!');
 
-// Rotas da API
-
+// Rota padrão
 app.get("/", (req, res) => res.send("API de Lista de Compras Online!"));
 
-// Rota para mover lista para histórico e depois deletar a original (DELETE /api/listas/:id)
-// Esta rota precisa estar aqui pois usa o modelo Historico para criar o registro antes de apagar a Lista
+// Rota para mover lista para histórico
 app.delete("/api/listas/:id", async (req, res) => {
   try {
     const lista = await Lista.findById(req.params.id);
@@ -50,11 +47,9 @@ app.delete("/api/listas/:id", async (req, res) => {
       return res.status(404).json({ message: "Lista não encontrada." });
     }
 
-    // Mapeia os itens para garantir que o formato do Histórico seja mantido
     const itensParaHistorico = lista.itens.map(item => ({
-        // Usamos .toObject() para garantir que pegamos os dados puros do Mongoose
         ...item.toObject(), 
-        dataCompra: item.dataCompra || null, // Garante que dataCompra existe para relatórios
+        dataCompra: item.dataCompra || null,
     }));
 
     const listaParaHistorico = new Historico({
@@ -66,8 +61,6 @@ app.delete("/api/listas/:id", async (req, res) => {
     });
 
     await listaParaHistorico.save();
-
-    // Deleta a lista original
     await lista.deleteOne();
 
     res.json({ message: "Lista movida para histórico e apagada com sucesso." });
@@ -76,8 +69,7 @@ app.delete("/api/listas/:id", async (req, res) => {
   }
 });
 
-
-// Iniciar o servidor
+// Inicialização do servidor
 app.listen(port, () => {
   console.log(`Servidor rodando na porta: ${port}`);
 });

@@ -8,7 +8,7 @@ import "./App.css";
 
 // const API_BASE_URL = 'https://sua-api-publica.com/api/listas'; // Exemplo de URL pública
 
-const API_BASE_URL = "http://localhost:5000/api/listas";
+const API_BASE_URL = "http://localhost:5001/api/listas";
 
 // ===============================================
 
@@ -21,6 +21,7 @@ const MenuRelatorios = ({ setView, onBack }) => (
     <h2>Menu de Relatórios</h2>
 
     <button
+      type="button"
       onClick={onBack}
       style={{
         marginBottom: "2rem",
@@ -33,6 +34,7 @@ const MenuRelatorios = ({ setView, onBack }) => (
 
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <button
+        type="button"
         onClick={() => setView("reports_data")}
         style={{ padding: "1rem", backgroundColor: "#3949ab", color: "white" }}
       >
@@ -40,13 +42,15 @@ const MenuRelatorios = ({ setView, onBack }) => (
       </button>
 
       <button
+        type="button"
         onClick={() => setView("reports_usuario")}
         style={{ padding: "1rem", backgroundColor: "#3949ab", color: "white" }}
       >
-        2. Compras/Solicitações por Usuário
+        2. Compras por Usuário
       </button>
 
       <button
+        type="button"
         onClick={() => setView("reports_frequencia")}
         style={{ padding: "1rem", backgroundColor: "#3949ab", color: "white" }}
       >
@@ -135,6 +139,7 @@ const RelatorioComprasPorData = ({ onBack }) => {
       <h2>1. Compras por Data</h2>
 
       <button
+        type="button"
         onClick={onBack}
         style={{ marginBottom: "1rem", backgroundColor: "#dc3545" }}
       >
@@ -146,7 +151,9 @@ const RelatorioComprasPorData = ({ onBack }) => {
         style={{ flexDirection: "column", gap: "1rem" }}
       >
         <div style={{ display: "flex", gap: "1rem" }}>
+          <label htmlFor="dataInicio" className="sr-only">Data de Início</label>
           <input
+            id="dataInicio"
             type="date"
             value={dataInicio}
             onChange={(e) => setDataInicio(e.target.value)}
@@ -155,7 +162,9 @@ const RelatorioComprasPorData = ({ onBack }) => {
             style={{ flex: 1, color: "#333", backgroundColor: "#f0f0f0" }}
           />
 
+          <label htmlFor="dataFim" className="sr-only">Data Final</label>
           <input
+            id="dataFim"
             type="date"
             value={dataFim}
             onChange={(e) => setDataFim(e.target.value)}
@@ -232,8 +241,6 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
 
   const [comprados, setComprados] = useState([]);
 
-  const [solicitados, setSolicitados] = useState([]);
-
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState(null);
@@ -253,7 +260,6 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
       if (!usuario || !dataInicio || !dataFim) {
         setError("Preencha o nome do usuário e as datas.");
         setComprados([]);
-        setSolicitados([]);
         return;
       }
 
@@ -264,24 +270,15 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
         console.log('Buscando relatório para usuário:', usuario);
         console.log('Período:', dataInicio, 'até', dataFim);
 
-        // Busca em paralelo para melhor performance
-        const [responseSolicitados, responseComprados] = await Promise.all([
-          // Buscando Listas Solicitadas (Criadas)
-          axios.get(`${API_BASE_URL}/relatorio-usuario/solicitados`, {
-            params: { usuario, dataInicio, dataFim },
-          }),
+          // Busca apenas Itens Comprados pelo usuário
+          const responseComprados = await axios.get(
+            `${API_BASE_URL}/relatorio-usuario/comprados`,
+            { params: { usuario, dataInicio, dataFim } }
+          );
 
-          // Buscando Itens Comprados
-          axios.get(`${API_BASE_URL}/relatorio-usuario/comprados`, {
-            params: { usuario, dataInicio, dataFim },
-          })
-        ]);
+          console.log('Dados de compras:', responseComprados.data);
 
-        console.log('Dados de solicitações:', responseSolicitados.data);
-        console.log('Dados de compras:', responseComprados.data);
-
-        setSolicitados(responseSolicitados.data);
-        setComprados(responseComprados.data);
+          setComprados(responseComprados.data);
       } catch (err) {
         console.error("Erro ao buscar relatório por usuário:", err);
         console.error("Detalhes do erro:", err.response?.data || err.message);
@@ -290,8 +287,7 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
           "Erro ao carregar o relatório por usuário. Verifique a conexão com a API."
         );
         
-        setSolicitados([]);
-        setComprados([]);
+  setComprados([]);
       } finally {
         setLoading(false);
       }
@@ -301,9 +297,10 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
 
   return (
     <div className="lista-detalhes">
-      <h2>2. Compras/Solicitações por Usuário</h2>
+  <h2>2. Compras por Usuário</h2>
 
       <button
+        type="button"
         onClick={onBack}
         style={{ marginBottom: "1rem", backgroundColor: "#dc3545" }}
       >
@@ -314,7 +311,9 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
         onSubmit={buscarRelatorio}
         style={{ flexDirection: "column", gap: "1rem" }}
       >
+        <label htmlFor="usuarioPesquisa" className="sr-only">Nome do Usuário</label>
         <input
+          id="usuarioPesquisa"
           type="text"
           value={usuario}
           onChange={(e) => setUsuario(e.target.value)}
@@ -324,7 +323,9 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
         />
 
         <div style={{ display: "flex", gap: "1rem" }}>
+          <label htmlFor="dataInicioUsuario" className="sr-only">Data de Início</label>
           <input
+            id="dataInicioUsuario"
             type="date"
             value={dataInicio}
             onChange={(e) => setDataInicio(e.target.value)}
@@ -333,7 +334,9 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
             style={{ flex: 1, color: "#333", backgroundColor: "#f0f0f0" }}
           />
 
+          <label htmlFor="dataFimUsuario" className="sr-only">Data Final</label>
           <input
+            id="dataFimUsuario"
             type="date"
             value={dataFim}
             onChange={(e) => setDataFim(e.target.value)}
@@ -356,64 +359,16 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
         <p style={{ color: "#ff5252", textAlign: "center" }}>{error}</p>
       )}
 
-      {(solicitados.length > 0 || comprados.length > 0) && (
+      {comprados.length > 0 && (
         <div
           style={{
             marginTop: "1rem",
             display: "flex",
             gap: "1rem",
-            flexDirection: window.innerWidth < 768 ? "column" : "row",
+            flexDirection: "column",
           }}
         >
-          {/* Coluna de Itens SOLICITADOS (Listas cujo nome coincide com o usuário) */}
-
-          <div style={{ flex: 1, minWidth: "45%" }}>
-            <h3
-              style={{
-                color: "#4CAF50",
-                borderBottom: "1px solid #4CAF50",
-                paddingBottom: "0.5rem",
-              }}
-            >
-              Listas Solicitadas (Criadas) - {solicitados.length}
-            </h3>
-
-            {solicitados.length > 0 ? (
-              <ul
-                style={{
-                  padding: "0.5rem",
-                  maxHeight: "300px",
-                  overflowY: "auto",
-                }}
-              >
-                {solicitados.map((lista, index) => (
-                  <li
-                    key={index}
-                    style={{
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div style={{ fontWeight: "bold" }}>
-                      Lista: {lista.nome}
-                    </div>
-
-                    <div style={{ fontSize: "0.8rem", color: "#b0bec5" }}>
-                      Simulação: Lista criada por nome similar.
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p style={{ fontSize: "0.9rem" }}>
-                Nenhuma lista criada por nome similar.
-              </p>
-            )}
-          </div>
-
-          {/* Coluna de Itens COMPRADOS (Itens marcados como comprados pelo usuário) */}
-
-          <div style={{ flex: 1, minWidth: "45%" }}>
+          <div style={{ flex: 1, minWidth: "100%" }}>
             <h3
               style={{
                 color: "#FF9800",
@@ -463,16 +418,12 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
 
       {/* Exibe mensagem se não houver dados, e não estiver carregando/com erro */}
 
-      {!loading &&
-        !error &&
-        solicitados.length === 0 &&
-        comprados.length === 0 &&
-        usuario && (
-          <p style={{ textAlign: "center", marginTop: "1rem" }}>
-            Nenhum dado encontrado para o usuário "{usuario}" no período
-            selecionado.
-          </p>
-        )}
+      {!loading && !error && comprados.length === 0 && usuario && (
+        <p style={{ textAlign: "center", marginTop: "1rem" }}>
+          Nenhum dado encontrado para o usuário "{usuario}" no período
+          selecionado.
+        </p>
+      )}
     </div>
   );
 };
@@ -510,7 +461,7 @@ const RelatorioFrequenciaDeCompra = ({ onBack }) => {
 
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/relatorio-frequencia`,
+          'http://localhost:5001/api/relatorios/frequencia',
           {
             params: { itemNome: itemNome.trim() },
           }
@@ -539,6 +490,7 @@ const RelatorioFrequenciaDeCompra = ({ onBack }) => {
       <h2>3. Frequência de Compra (Item)</h2>
 
       <button
+        type="button"
         onClick={onBack}
         style={{ marginBottom: "1rem", backgroundColor: "#dc3545" }}
       >
@@ -549,7 +501,9 @@ const RelatorioFrequenciaDeCompra = ({ onBack }) => {
         onSubmit={buscarFrequencia}
         style={{ flexDirection: "column", gap: "1rem" }}
       >
+        <label htmlFor="itemNome" className="sr-only">Nome do item</label>
         <input
+          id="itemNome"
           type="text"
           value={itemNome}
           onChange={(e) => setItemNome(e.target.value)}
@@ -650,12 +604,14 @@ const ListaDetalhes = ({
     <div className="lista-detalhes">
       <h2>{lista.nome}</h2>
 
-      <button onClick={onVoltar} style={{ marginBottom: "1rem" }}>
+      <button type="button" onClick={onVoltar} style={{ marginBottom: "1rem" }}>
         Voltar para Listas
       </button>
 
       <form onSubmit={handleAddItem}>
+        <label htmlFor="novoItem" className="sr-only">Adicionar novo item</label>
         <input
+          id="novoItem"
           type="text"
           value={novoItem}
           onChange={(e) => setNovoItem(e.target.value)}
@@ -671,6 +627,8 @@ const ListaDetalhes = ({
           lista.itens.map((item) => (
             <li
               key={item._id}
+              role="button"
+              tabIndex={0}
               onClick={() =>
                 onUpdateItem(item._id, {
                   comprado: !item.comprado,
@@ -680,6 +638,16 @@ const ListaDetalhes = ({
                   dataCompra: !item.comprado ? new Date() : null,
                 })
               }
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onUpdateItem(item._id, {
+                    comprado: !item.comprado,
+                    comprador: !item.comprado ? userName : null,
+                    dataCompra: !item.comprado ? new Date() : null,
+                  });
+                }
+              }}
             >
               <span className={item.comprado ? "comprado" : ""}>
                 {item.nome}
@@ -692,6 +660,8 @@ const ListaDetalhes = ({
               )}
 
               <button
+                type="button"
+                aria-label={`Excluir item ${item.nome}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDeleteItem(item._id);
@@ -928,23 +898,23 @@ const App = () => {
         );
 
       case "main":
-
-      default:
         return (
           <>
             <div className="listas-existentes">
               <h2>Listas Ativas</h2>
 
               <form onSubmit={handleCriarLista}>
-                <input
-                  type="text"
-                  value={novaListaNome}
-                  onChange={(e) => setNovaListaNome(e.target.value)}
-                  placeholder="Nome da nova lista"
-                  required
-                />
+                  <label htmlFor="novaListaNome" className="sr-only">Nome da nova lista</label>
+                  <input
+                    id="novaListaNome"
+                    type="text"
+                    value={novaListaNome}
+                    onChange={(e) => setNovaListaNome(e.target.value)}
+                    placeholder="Nome da nova lista"
+                    required
+                  />
 
-                <button type="submit">Criar</button>
+                  <button type="submit">Criar</button>
               </form>
 
               <ul>
@@ -954,9 +924,11 @@ const App = () => {
                       key={lista._id}
                       onClick={() => handleSelecionarLista(lista)}
                     >
-                      <button>{lista.nome}</button>
+                      <button type="button" aria-label={`Abrir lista ${lista.nome}`} onClick={() => handleSelecionarLista(lista)}>{lista.nome}</button>
 
                       <button
+                        type="button"
+                        aria-label={`Excluir lista ${lista.nome}`}
                         onClick={(e) => handleExcluirLista(lista._id, e)}
                         style={{ color: "#ff5252" }}
                       >
@@ -977,6 +949,7 @@ const App = () => {
               <h2 style={{ textAlign: "center" }}>Opções</h2>
 
               <button
+                type="button"
                 onClick={() => setView("reports_menu")}
                 style={{
                   padding: "1rem 2rem",
@@ -996,8 +969,9 @@ const App = () => {
     <div className="container">
       <header>
         <h1>Lista de Compras Colaborativa</h1>
-
+        <label htmlFor="userName" className="sr-only">Seu nome</label>
         <input
+          id="userName"
           type="text"
           value={nomeUsuario}
           onChange={(e) => setNomeUsuario(e.target.value)}

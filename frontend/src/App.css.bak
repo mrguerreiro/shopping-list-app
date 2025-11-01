@@ -1,12 +1,23 @@
-/* Estilos do contêiner principal (centralizado com margin auto) */
+/* Estilos Globais e de Fundo */
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #c6c8d8; /* Fundo azul escuro para a página inteira */
+  color: #ffffff; /* Letras brancas */
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
 .container {
-  background-color: #5c76af; /* Fundo azul para o contêiner principal */
+  background-color: #5c76af; /* Fundo azul um pouco mais claro para o contêiner principal */
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  padding: clamp(1rem, 2.5vw, 2.5rem);
+  padding: 2.5rem;
   width: 90%;
   max-width: 1200px;
-  margin: 2.5rem auto; /* centraliza horizontalmente e adiciona espaço vertical */
   display: flex;
   flex-direction: row;
   gap: 2rem;
@@ -112,12 +123,6 @@ li:hover {
 
 li:last-child {
   border-bottom: none;
-}
-
-/* Ajuda a evitar overflow quando nomes são muito longos sem espaços */
-li {
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .comprado {
