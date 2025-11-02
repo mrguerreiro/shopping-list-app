@@ -207,6 +207,29 @@ Depois de hospedar, atualize a URL da API no frontend e faça novo build + deplo
 
 ---
 
+## Atalho no Windows: script que liga backend + ngrok e gera build
+
+Para agilizar após reiniciar o PC, use o script pronto em `scripts/start_local_with_ngrok.ps1`:
+
+1) Abra o PowerShell na raiz do projeto e execute:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+./scripts/start_local_with_ngrok.ps1
+```
+
+O script irá:
+- Iniciar o backend em `http://127.0.0.1:5001` (com logs em `backend/logs/`)
+- Iniciar o ngrok e capturar a URL pública (ex.: `https://xxxxx.ngrok-free.dev`)
+- Atualizar `frontend/.env` com `VITE_API_URL=<URL_DO_NGROK>`
+- Rodar `npm run build` no frontend e indicar a pasta `frontend/dist/` para deploy no Netlify
+
+Observação:
+- Se a URL do ngrok mudar, rode o script novamente e refaça o upload do `dist/` para o Netlify.
+- Para URL estável, hospede o backend em Render/Railway e use essa URL no `VITE_API_URL`.
+
+---
+
 ## Resumo dos Comandos
 
 ### Backend (local + ngrok)
