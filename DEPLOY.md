@@ -195,7 +195,44 @@ Se o frontend não conseguir se comunicar com o backend, verifique:
 
 ---
 
-## Opcional: Hospedar o Backend
+## Backend em Produção (Render)
+
+Com o arquivo `render.yaml` na raiz do projeto, você consegue criar um serviço no Render em poucos cliques.
+
+1) Requisitos
+- Ter a string de conexão do MongoDB (ex.: Atlas). Não coloque no Git, vamos usar variável de ambiente.
+- O repositório já está no GitHub: `mrguerreiro/shopping-list-app`.
+
+2) Criar o serviço no Render
+- Acesse https://dashboard.render.com > New > Blueprint
+- Conecte ao GitHub e selecione este repositório.
+- O Render lerá o `render.yaml` e mostrará o serviço `shopping-list-backend`.
+- Clique em Apply.
+
+3) Configurar variáveis de ambiente
+- No serviço criado, abra Settings > Environment.
+- Adicione:
+   - `MONGO_URI` = sua string do MongoDB Atlas (ou instância própria)
+   - (opcional) `NODE_VERSION` = 20
+- Salve e clique em Redeploy.
+
+4) Testar
+- Aguarde o deploy terminar. Você terá uma URL como `https://shopping-list-backend.onrender.com`.
+- Abra `https://SEU_BACKEND/test` e verifique se responde `ok`.
+- Confira `https://SEU_BACKEND/api/listas` para ver as listas.
+
+5) Atualizar o frontend
+- Edite `frontend/.env`:
+   ```env
+   VITE_API_URL=https://SEU_BACKEND.onrender.com
+   ```
+- Rode o build na pasta `frontend/` e replique o deploy no Netlify (veja Parte 3).
+
+Pronto! Assim o backend fica online 24/7 e o frontend no Netlify não depende mais do seu PC ligado.
+
+---
+
+## Opcional: Hospedar o Backend (outras opções)
 
 Para evitar usar ngrok toda vez, considere hospedar o backend em:
 - **Railway:** Deploy gratuito com MongoDB integrado
@@ -207,7 +244,7 @@ Depois de hospedar, atualize a URL da API no frontend e faça novo build + deplo
 
 ---
 
-## Atalho no Windows: script que liga backend + ngrok e gera build
+## Atalho no Windows: script que liga backend + ngrok e gera build (uso local)
 
 Para agilizar após reiniciar o PC, use o script pronto em `scripts/start_local_with_ngrok.ps1`:
 
