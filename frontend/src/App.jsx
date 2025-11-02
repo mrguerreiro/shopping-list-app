@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from "react";
 
 import axios from "axios";
 
+// Evita a tela de aviso do ngrok nos fetches do frontend
+axios.defaults.headers.common["ngrok-skip-browser-warning"] = "true";
+
 import "./App.css";
 
 // URL base da API - usa variável de ambiente ou fallback para localhost
@@ -118,7 +121,8 @@ const RelatorioComprasPorData = ({ onBack }) => {
           },
         });
 
-        setCompras(response.data);
+        // Garante que sempre seja um array válido
+        setCompras(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         console.error("Erro ao buscar relatório:", err);
 
@@ -278,7 +282,8 @@ const RelatorioComprasPorUsuario = ({ onBack }) => {
 
           console.log('Dados de compras:', responseComprados.data);
 
-          setComprados(responseComprados.data);
+          // Garante que sempre seja um array válido
+          setComprados(Array.isArray(responseComprados.data) ? responseComprados.data : []);
       } catch (err) {
         console.error("Erro ao buscar relatório por usuário:", err);
         console.error("Detalhes do erro:", err.response?.data || err.message);
@@ -714,9 +719,12 @@ const App = () => {
     try {
       const response = await axios.get(API_BASE_URL);
 
-      setListas(response.data);
+      // Garante que sempre seja um array válido
+      setListas(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Erro ao buscar listas:", error);
+      // Em caso de erro, mantém array vazio para evitar crash
+      setListas([]);
     }
   }, []);
 

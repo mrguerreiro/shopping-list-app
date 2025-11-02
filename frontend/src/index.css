@@ -30,6 +30,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Reset/robustez para mobile: evita overflow horizontal em alguns aparelhos */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* Accessibility helpers */
 .sr-only {
   position: absolute !important;
