@@ -13,6 +13,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api/listas`
   : "http://localhost:5001/api/listas";
 
+// Base do backend para pings de saúde (ex.: /test)
+const BACKEND_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
 // ===============================================
 
 // Componente de Menu de Relatórios
@@ -694,6 +697,8 @@ const ListaDetalhes = ({
 
 const App = () => {
   const [listas, setListas] = useState([]);
+  const [isOnline, setIsOnline] = useState(true);
+  const [warmingUp, setWarmingUp] = useState(false);
 
   const [nomeUsuario, setNomeUsuario] = useState(
     localStorage.getItem("userName") || ""
@@ -717,26 +722,52 @@ const App = () => {
 
   const fetchListas = useCallback(async () => {
     try {
-      const response = await axios.get(API_BASE_URL);
+      const response = await axios.get(API_BASE_URL, { timeout: 20000 });
 
       // Garante que sempre seja um array válido
       setListas(Array.isArray(response.data) ? response.data : []);
+      if (!isOnline) setIsOnline(true);
     } catch (error) {
       console.error("Erro ao buscar listas:", error);
-      // Em caso de erro, mantém array vazio para evitar crash
-      setListas([]);
+      // Não limpa as listas em caso de falha (ex.: cold start no Render)
+      // Mantém o último estado e tenta novamente no próximo ciclo
+      setIsOnline(false);
     }
+  }, [isOnline]);
+
+  // Faz ping no backend com tentativas exponenciais (acorda instância no Render)
+  const warmupBackend = useCallback(async () => {
+    setWarmingUp(true);
+    const maxTries = 5;
+    let delay = 1000; // 1s, 2s, 4s, 8s, 16s
+    for (let i = 0; i < maxTries; i++) {
+      try {
+        await axios.get(`${BACKEND_BASE_URL}/test`, { timeout: 20000 });
+        setIsOnline(true);
+        setWarmingUp(false);
+        return true;
+      } catch (e) {
+        console.warn(`Warm-up tentativa ${i + 1} falhou; tentando em ${delay}ms`, e?.message || e);
+        await new Promise((res) => setTimeout(res, delay));
+        delay *= 2;
+      }
+    }
+    setWarmingUp(false);
+    setIsOnline(false);
+    return false;
   }, []);
 
   useEffect(() => {
-    fetchListas();
+    // Aquece o backend (Render pode estar "adormecido") e busca listas
+    (async () => {
+      await warmupBackend();
+      await fetchListas();
+    })();
 
-    // Adiciona um polling para simular atualização em tempo real
-
+    // Polling contínuo (mantém dados atualizados quando online)
     const interval = setInterval(fetchListas, 5000);
-
     return () => clearInterval(interval);
-  }, [fetchListas]);
+  }, [fetchListas, warmupBackend]);
 
   const handleCriarLista = async (e) => {
     e.preventDefault();
@@ -978,6 +1009,18 @@ const App = () => {
     <div className="container">
       <header>
         <h1>Lista de Compras Colaborativa</h1>
+        {!isOnline && (
+          <p style={{
+            background: "#ffc107",
+            color: "#1a1a1a",
+            padding: "0.5rem 0.75rem",
+            borderRadius: 8,
+            margin: "0.5rem auto",
+            maxWidth: 600,
+          }}>
+            Reconectando à API... {warmingUp ? "(iniciando servidor)" : "(nova tentativa em alguns segundos)"}
+          </p>
+        )}
         <label htmlFor="userName" className="sr-only">Seu nome</label>
         <input
           id="userName"
