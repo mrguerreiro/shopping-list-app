@@ -796,6 +796,10 @@ const App = () => {
   const handleExcluirLista = async (id, e) => {
     e.stopPropagation();
 
+    // Confirmação antes de excluir
+    const confirmacao = window.confirm("Deseja realmente excluir essa lista?");
+    if (!confirmacao) return;
+
     try {
       await axios.delete(`${API_BASE_URL}/${id}`);
 
@@ -880,6 +884,10 @@ const App = () => {
   };
 
   const handleDeleteItem = async (itemId) => {
+    // Confirmação antes de excluir
+    const confirmacao = window.confirm("Deseja realmente excluir esse item da lista?");
+    if (!confirmacao) return;
+
     try {
       console.log('Requisitando exclusão do item', itemId, 'na lista', listaSelecionada?._id);
       const response = await axios.delete(
