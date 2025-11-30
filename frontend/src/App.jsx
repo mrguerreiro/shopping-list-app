@@ -1016,7 +1016,7 @@ const App = () => {
   return (
     <div className="container">
       <header>
-        <h1>Lista de Compras Colaborativa</h1>
+        <h1>Lista de Compras</h1>
         {!isOnline && (
           <p style={{
             background: "#ffc107",
